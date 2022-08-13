@@ -3,10 +3,18 @@ package daylightnebula.projectstream.webserver
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
+import java.awt.Image
+import java.awt.RenderingHints
+import java.awt.geom.AffineTransform
+import java.awt.image.AffineTransformOp
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.lang.Integer.max
 import java.net.InetSocketAddress
 import java.nio.file.StandardWatchEventKinds.*
 import java.nio.file.WatchService
+import javax.imageio.ImageIO
 
 object WebServer {
     var ATTEMPT_COMPRESS = true
@@ -174,6 +182,9 @@ object WebServer {
                 } else if (subpath.endsWith("obj")) {
                     httpserver.createContext(subpath, OBJHandler(subpath))
                     contexts.add(subpath)
+                } else if (subpath.endsWith("png")) {
+                    httpserver.createContext(subpath, PNGHandler(subpath))
+                    contexts.add(subpath)
                 } else {
                     httpserver.createContext(subpath, FileHandler(subpath))
                     contexts.add(subpath)
@@ -205,6 +216,46 @@ class MainJSHandler(): HttpHandler {
         exchange.sendResponseHeaders(200, js.length.toLong())
         val os = exchange.responseBody
         os.write(js.encodeToByteArray())
+        os.close()
+    }
+}
+class PNGHandler(val subpath: String): HttpHandler {
+    val maxLengthSize = 256
+    val bytes: ByteArray
+    init {
+        // get source image
+        val file = File(WebServer.clientDirectory, subpath)
+        val inputImage = ImageIO.read(file)
+
+        // get output image
+        if ((inputImage.width > maxLengthSize || inputImage.height > maxLengthSize) && inputImage.type != 0) {
+            println("PNGHandler: Scaled $subpath with type ${inputImage.type}")
+            // get new width and height
+            val scaleAmount = maxLengthSize.toDouble() / max(inputImage.width, inputImage.height).toDouble()
+            val outWidth = (inputImage.width * scaleAmount).toInt()
+            val outHeight = (inputImage.height * scaleAmount).toInt()
+
+            // create output image
+            val out = BufferedImage(outWidth, outHeight, inputImage.type)
+            val graphics = out.createGraphics()
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+            graphics.drawImage(inputImage, 0, 0, outWidth, outHeight, null)
+            graphics.dispose()
+
+            // write out image to byte array
+            val baos = ByteArrayOutputStream()
+            ImageIO.write(out, "png", baos)
+            bytes = baos.toByteArray()
+        } else {
+            println("PNGHandler: Left $subpath unmodified")
+            bytes = file.readBytes()
+        }
+    }
+
+    override fun handle(exchange: HttpExchange) {
+        exchange.sendResponseHeaders(200, bytes.size.toLong())
+        val os = exchange.responseBody
+        os.write(bytes)
         os.close()
     }
 }
