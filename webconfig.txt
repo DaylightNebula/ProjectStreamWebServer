@@ -1,0 +1,2 @@
+DIR=D:\projectstream\ProjectStreamWebClient\src
+COMPRESS=false
