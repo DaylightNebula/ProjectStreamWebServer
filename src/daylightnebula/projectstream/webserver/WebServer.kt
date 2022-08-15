@@ -3,10 +3,7 @@ package daylightnebula.projectstream.webserver
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
-import java.awt.Image
 import java.awt.RenderingHints
-import java.awt.geom.AffineTransform
-import java.awt.image.AffineTransformOp
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -238,7 +235,7 @@ class PNGHandler(val subpath: String): HttpHandler {
             // create output image
             val out = BufferedImage(outWidth, outHeight, inputImage.type)
             val graphics = out.createGraphics()
-            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
             graphics.drawImage(inputImage, 0, 0, outWidth, outHeight, null)
             graphics.dispose()
 
@@ -269,8 +266,13 @@ class OBJHandler(val subpath: String): HttpHandler {
         // create arrays for the object
         val vertices = mutableListOf<Byte>()
         val normals = mutableListOf<Byte>()
-        val indices = mutableListOf<Byte>()
+        //val indices = mutableListOf<Byte>()
         val texCoords = mutableListOf<Byte>()
+
+        var faceStringCounter = 0
+        val faceStrings = hashMapOf<String, Int>()
+
+        val faceIndices = mutableListOf<Byte>()
 
         // loop through the lines and add them to the vertices array
         lines.forEach {
@@ -284,51 +286,86 @@ class OBJHandler(val subpath: String): HttpHandler {
                     vertices.addAll(ByteUtils.convertIntToBytes(tokens[3].toFloat().toBits()).toTypedArray())
                 }
                 "vn" -> {
-                    normals.addAll(ByteUtils.convertIntToBytes(tokens[1].toFloat().toBits()).toTypedArray())
-                    normals.addAll(ByteUtils.convertIntToBytes(tokens[2].toFloat().toBits()).toTypedArray())
-                    normals.addAll(ByteUtils.convertIntToBytes(tokens[3].toFloat().toBits()).toTypedArray())
+                    normals.add((tokens[1].toFloat() * 127f).toInt().toByte())
+                    normals.add((tokens[2].toFloat() * 127f).toInt().toByte())
+                    normals.add((tokens[3].toFloat() * 127f).toInt().toByte())
+                    //normals.addAll(ByteUtils.convertShortToBytes((tokens[1].toFloat() * 32767f).toInt().toShort()).toTypedArray())
+                    //normals.addAll(ByteUtils.convertShortToBytes((tokens[2].toFloat() * 32767f).toInt().toShort()).toTypedArray())
+                    //normals.addAll(ByteUtils.convertShortToBytes((tokens[3].toFloat() * 32767f).toInt().toShort()).toTypedArray())
                 }
                 "vt" -> {
-                    texCoords.addAll(ByteUtils.convertIntToBytes(tokens[1].toFloat().toBits()).toTypedArray())
-                    texCoords.addAll(ByteUtils.convertIntToBytes(tokens[2].toFloat().toBits()).toTypedArray())
+                    texCoords.add((tokens[1].toFloat() * 127f).toInt().toByte())
+                    texCoords.add((tokens[2].toFloat() * 127f).toInt().toByte())
+
+                    //texCoords.addAll(ByteUtils.convertShortToBytes((tokens[1].toFloat() * 32767f).toInt().toShort()).toTypedArray())
+                    //texCoords.addAll(ByteUtils.convertShortToBytes((tokens[2].toFloat() * 32767f).toInt().toShort()).toTypedArray())
                 }
                 "f" -> {
                     if (tokens.size != 4) println("Face size ${tokens.size}")
                     tokens.forEachIndexed { index, face ->
                         if (index == 0) return@forEachIndexed
-                        val faceElements = face.replace("\r", "").split("/")
-                        /*indices.addAll(ByteUtils.convertIntToBytes(faceElements[0].toInt()).toTypedArray())
-                        indices.addAll(ByteUtils.convertIntToBytes(faceElements[1].toInt()).toTypedArray())
-                        indices.addAll(ByteUtils.convertIntToBytes(faceElements[2].toInt()).toTypedArray())*/
+
+                        // try to get a face index for the given face
+                        var faceIndex = faceStrings[face]
+
+                        // if no face index was found, create a new one
+                        if (faceIndex == null) {
+                            faceIndex = faceStringCounter
+                            faceStringCounter++
+                            faceStrings[face] = faceIndex
+                        }
+
+                        // save index
+                        faceIndices.addAll(ByteUtils.convertShortToBytes(faceIndex.toShort()).toTypedArray())
+
+                        /*val faceElements = face.replace("\r", "").split("/")
                         indices.addAll(ByteUtils.convertShortToBytes(faceElements[0].toShort()).toTypedArray())
                         indices.addAll(ByteUtils.convertShortToBytes(faceElements[1].toShort()).toTypedArray())
-                        indices.addAll(ByteUtils.convertShortToBytes(faceElements[2].toShort()).toTypedArray())
-                        /*indices.add(faceElements[0].toUByte().toByte())
-                        indices.add(faceElements[1].toUByte().toByte())
-                        indices.add(faceElements[2].toUByte().toByte())*/
+                        indices.addAll(ByteUtils.convertShortToBytes(faceElements[2].toShort()).toTypedArray())*/
                     }
-                    /*indices.addAll(ByteUtils.convertIntToBytes(tokens[1].split("/").first().toInt()).toTypedArray())
-                    indices.addAll(ByteUtils.convertIntToBytes(tokens[2].split("/").first().toInt()).toTypedArray())
-                    indices.addAll(ByteUtils.convertIntToBytes(tokens[3].split("/").first().toInt()).toTypedArray())*/
                 }
             }
         }
 
+        // convert face strings to face bytes
+        val facePointsBytes = ByteArray(faceStrings.size * 6)
+        faceStrings.forEach { face, index ->
+            val faceElements = face.replace("\r", "").split("/")
+            ByteUtils.applyShortToByteArray(faceElements[0].toShort(), facePointsBytes, index * 6 + 0)
+            ByteUtils.applyShortToByteArray(faceElements[1].toShort(), facePointsBytes, index * 6 + 2)
+            ByteUtils.applyShortToByteArray(faceElements[2].toShort(), facePointsBytes, index * 6 + 4)
+        }
+
         println("Vertex count ${vertices.size / 12}")
-        println("Normals count ${normals.size / 12}")
-        println("Tex Coords count ${texCoords.size / 8}")
-        println("Indices count ${indices.size / 6}")
+        println("Normals count ${normals.size / 3}")
+        println("Tex Coords count ${texCoords.size / 2}")
+        //println("Indices count ${indices.size / 6}")
+
+        println("Vertices Byte Size ${vertices.size}")
+        println("Normals Byte Size ${normals.size}")
+        println("Tex Coords Byte Size ${texCoords.size}")
+        println("Face bytes Byte Size ${facePointsBytes.size}")
+        println("Face indices Byte Size ${faceIndices.size}")
+        //println("Indices Byte Size ${indices.size}")
+        println("Total Byte Size ${vertices.size + normals.size + texCoords.size + facePointsBytes.size + faceIndices.size}")
+
+        //println("Face indices byte size ${faceIndices.size}")
+        //println("Face Elements ${faceStrings.size * 6}")
 
         // compile to byte array=
         bytes = byteArrayOf(
             *ByteUtils.convertIntToBytes(vertices.size / 12),
             *vertices.toByteArray(),
-            *ByteUtils.convertIntToBytes(normals.size / 12),
+            *ByteUtils.convertIntToBytes(normals.size / 3),
             *normals.toByteArray(),
-            *ByteUtils.convertIntToBytes(texCoords.size / 8),
+            *ByteUtils.convertIntToBytes(texCoords.size / 2),
             *texCoords.toByteArray(),
-            *ByteUtils.convertIntToBytes(indices.size / 6),
-            *indices.toByteArray(),
+            *ByteUtils.convertIntToBytes(facePointsBytes.size / 6),
+            *facePointsBytes,
+            *ByteUtils.convertIntToBytes(faceIndices.size / 2),
+            *faceIndices.toByteArray()
+            //*ByteUtils.convertIntToBytes(indices.size / 6),
+            //*indices.toByteArray(),
         )
     }
 

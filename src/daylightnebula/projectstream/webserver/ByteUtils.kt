@@ -58,6 +58,12 @@ class ByteUtils {
             array[startIndex + 3] = newBytes[3]
         }
 
+        fun applyShortToByteArray(value: Short, array: ByteArray, startIndex: Int) {
+            val newBytes = convertShortToBytes(value)
+            array[startIndex + 0] = newBytes[0]
+            array[startIndex + 1] = newBytes[1]
+        }
+
         fun applyFloatToByteArray(value: Float, array: ByteArray, startIndex: Int) {
             val newBytes = ByteBuffer.allocate(4).putFloat(value).array()
             array[startIndex + 0] = newBytes[3]
