@@ -3,6 +3,7 @@ package daylightnebula.projectstream.webserver
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
+import kotlinx.serialization.json.*
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
@@ -158,7 +159,7 @@ object WebServer {
                     text.replaceAll {
                         // remove comments if we are compressing
                         if (ATTEMPT_COMPRESS) {
-                            if (it.contains("//")) return@replaceAll it.split("//")[0]
+                            if (it.contains("//") && !it.contains("http")) return@replaceAll it.split("//")[0]
                             else if (it.startsWith("/**")) return@replaceAll ""
                             else if (it.startsWith(" *")) return@replaceAll ""
                             else if (it.startsWith(" */")) return@replaceAll ""
@@ -182,6 +183,14 @@ object WebServer {
                 } else if (subpath.endsWith("png")) {
                     httpserver.createContext(subpath, PNGHandler(subpath))
                     contexts.add(subpath)
+                } else if (subpath.endsWith("bbmodel")) {
+                    httpserver.createContext(subpath, BBModelHandler(subpath))
+                    contexts.add(subpath)
+                    println("Created bbmodel subpath $subpath")
+                } else if (subpath.endsWith("scene")) {
+                    httpserver.createContext(subpath, SceneHandler(subpath))
+                    contexts.add(subpath)
+                    println("Craeted scene subpath $subpath")
                 } else {
                     httpserver.createContext(subpath, FileHandler(subpath))
                     contexts.add(subpath)

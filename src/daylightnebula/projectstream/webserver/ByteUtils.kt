@@ -30,6 +30,16 @@ class ByteUtils {
             )
         }
 
+        fun convertFloatToByteArray(value: Float): ByteArray {
+            val intBits = java.lang.Float.floatToIntBits(value)
+            return byteArrayOf(
+                (intBits shr 0).toByte(),
+                (intBits shr 8).toByte(),
+                (intBits shr 16).toByte(),
+                (intBits shr 24).toByte()
+            )
+        }
+
         fun convertBytesToInt(buffer: ByteArray, startByte: Int): Int {
             return (buffer[startByte + 3].toInt() shl 24) or
                     (buffer[startByte + 2].toInt() and 0xff shl 16) or

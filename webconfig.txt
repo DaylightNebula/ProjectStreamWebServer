@@ -1,2 +1,2 @@
-DIR=D:\projectstream\ProjectStreamWebClient\src
+DIR=D:\projectstream\ProjectStream-JSWebClient\src
 COMPRESS=false
