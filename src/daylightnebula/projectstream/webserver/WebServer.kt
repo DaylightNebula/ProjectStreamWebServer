@@ -17,6 +17,7 @@ import javax.imageio.ImageIO
 object WebServer {
 
     lateinit var httpserver: HttpServer
+    lateinit var watchService: WatchService
 
     val contexts = mutableListOf<String>()
 
@@ -48,6 +49,59 @@ object WebServer {
         httpserver.executor = null
         httpserver.start()
         println("HTTP server started!")
+
+        // create watch service
+        val path = File(System.getProperty("user.dir")).toPath()
+        watchService = path.fileSystem.newWatchService()
+
+        // register file watches
+        registerFileWatch(Config.getFile("ENGINE_DIR"))
+        registerFileWatch(Config.getFile("ASSETS_DIR"))
+        registerFileWatch(Config.getFile("SCRIPTS_DIR"))
+
+        while(true) { checkFiles() }
+    }
+
+    fun registerFileWatch(file: File) {
+        val path = file.toPath()
+        path.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE)
+
+        // loop through all files, and for each directory, call this function recursively
+        file.listFiles()?.forEach {
+            if (it.isDirectory)
+                registerFileWatch(it)
+        }
+    }
+
+    fun checkFiles() {
+        // get water service key
+        val key = watchService.take()
+        var filesDirty = false
+
+        // get events from the watch service key
+        for (event in key.pollEvents()) {
+            // get event kind
+            val kind = event.kind()
+
+            // if kind is overflow, skip the rest of this iteration
+            if (kind == OVERFLOW) continue
+
+            // switch for kind, for all accepted criteria set files dirty to true, if unknown criteria, print a warning statement
+            when (kind) {
+                ENTRY_CREATE -> { filesDirty = true }
+                ENTRY_MODIFY -> { filesDirty = true }
+                ENTRY_DELETE -> { filesDirty = true }
+                else -> {
+                    println("WARN: Unknown kind $kind")
+                }
+            }
+
+            // reset the key, I don't know why we need this, but we do otherwise everything hangs
+            key.reset()
+        }
+
+        // if files are dirty, reload the files
+        if (filesDirty) loadFiles()
     }
 
     fun loadFiles() {
@@ -61,6 +115,7 @@ object WebServer {
         // load contexts
         println("Loading contexts")
         loadAssetsContexts()
+        loadScriptsContexts()
 
         println("Finished loading files")
     }
@@ -90,7 +145,27 @@ object WebServer {
     }
 
     fun loadScriptsContexts() {
+        val rootDir = Config.getFile("SCRIPTS_DIR")
+        loadScriptContext(rootDir, "")
+        println("Loaded assets contexts")
+    }
 
+    fun loadScriptContext(file: File, subpath: String) {
+        if (file.isDirectory) {
+            file.listFiles()?.forEach {
+                loadScriptContext(it, "$subpath/${it.name}")
+            }
+        } else if (!contexts.contains(subpath)) {
+            println("Adding http context for file at path " + subpath)
+            contexts.add(subpath)
+
+            val fileHandler = when (subpath.split(".").last()) {
+                "bbmodel" -> BBModelHandler(file)
+                "scene" -> SceneHandler(file)
+                else -> GeneralFileHandler(file)
+            }
+            httpserver.createContext(subpath, fileHandler)
+        }
     }
 }
 class GeneralFileHandler(val file: File): HttpHandler {
