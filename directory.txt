@@ -1,1 +1,7 @@
-D:\projectstream\ProjectStreamWebClient\src
+class Test {
+    hello() {
+        console.log("Hello World!");
+    }
+}
+let test = Test();
+test.hello();

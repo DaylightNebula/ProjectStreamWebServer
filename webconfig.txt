@@ -1,2 +1,9 @@
-DIR=D:\projectstream\ProjectStream-JSWebClient\src
-COMPRESS=false
+# Target directories
+ENGINE_DIR=D:\projectstream\ProjectStream-JSWebClient\engine
+SCRIPTS_DIR=D:\projectstream\ProjectStream-JSWebClient\scripts
+ASSETS_DIR=D:\projectstream\ProjectStream-JSWebClient\assets
+
+# Compression settings
+COMPRESS_BLANKSPACE=true
+COMPRESS_COMMENTS=true
+COMPRESS_UNUSED=true

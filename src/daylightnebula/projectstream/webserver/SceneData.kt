@@ -5,7 +5,7 @@ import com.sun.net.httpserver.HttpHandler
 import kotlinx.serialization.json.*
 import java.io.File
 
-class SceneHandler(val subpath: String): HttpHandler {
+class SceneHandler(file: File): HttpHandler {
 
     /**
      * camera_position: 3 floats
@@ -41,7 +41,7 @@ class SceneHandler(val subpath: String): HttpHandler {
 
     init {
         // get json file
-        val text = File(WebServer.clientDirectory, subpath).readText()
+        val text = file.readText()
         val inJson = Json.parseToJsonElement(text).jsonObject
 
         // breakup json

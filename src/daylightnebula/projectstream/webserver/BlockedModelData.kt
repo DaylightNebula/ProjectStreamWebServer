@@ -5,7 +5,7 @@ import com.sun.net.httpserver.HttpHandler
 import kotlinx.serialization.json.*
 import java.io.File
 
-class BBModelHandler(val subpath: String): HttpHandler {
+class BBModelHandler(file: File): HttpHandler {
 
     /**
      * numBlocks: Int
@@ -55,11 +55,11 @@ class BBModelHandler(val subpath: String): HttpHandler {
         val boneIDMap = mutableMapOf<String, Int>()
 
         // get and break up input json
-        val text = File(WebServer.clientDirectory, subpath).readText()
+        val text = file.readText()
         val inJson = Json.parseToJsonElement(text).jsonObject
-        val elementsArray = inJson.get("elements")?.jsonArray ?: throw NullPointerException("Couldn't find elements array in bbmodel on subpath $subpath")
-        val outlinerArray = inJson.get("outliner")?.jsonArray ?: throw NullPointerException("Couldn't find outliner array in bbmodel on subpath $subpath")
-        val animationsArray = inJson.get("animations")?.jsonArray ?: throw NullPointerException("Couldn't find animations array in bbmodel on subpath $subpath")
+        val elementsArray = inJson.get("elements")?.jsonArray ?: throw NullPointerException("Couldn't find elements array in bbmodel on subpath ${file.absolutePath}")
+        val outlinerArray = inJson.get("outliner")?.jsonArray ?: throw NullPointerException("Couldn't find outliner array in bbmodel on subpath ${file.absolutePath}")
+        val animationsArray = inJson.get("animations")?.jsonArray ?: throw NullPointerException("Couldn't find animations array in bbmodel on subpath ${file.absolutePath}")
 
         // build output byte array
         bytes = byteArrayOf(
@@ -68,7 +68,7 @@ class BBModelHandler(val subpath: String): HttpHandler {
             *getAnimationsBytes(animationsArray, blockIDMap, boneIDMap)
         )
 
-        println("Prepared model with subpath $subpath")
+        println("Prepared model with subpath ${file.absolutePath}")
     }
 
     override fun handle(exchange: HttpExchange) {
