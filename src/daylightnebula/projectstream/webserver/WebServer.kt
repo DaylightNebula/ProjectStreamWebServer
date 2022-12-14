@@ -38,10 +38,6 @@ object WebServer {
         // create http server
         httpserver = HttpServer.create(InetSocketAddress(port), 0)
 
-        // load basic contexts
-        httpserver.createContext("/", GeneralFileHandler(File(Config.getFile("ENGINE_DIR"), "/index.html")))
-        httpserver.createContext("/main.js", MainJSHandler())
-
         // load everything
         loadFiles()
 
@@ -105,12 +101,20 @@ object WebServer {
     }
 
     fun loadFiles() {
-        if (contexts.isNotEmpty()) println("Removing old contexts")
+        if (contexts.isNotEmpty()) {
+            println("Removing old contexts")
+            httpserver.removeContext("/")
+            httpserver.removeContext("/main.js")
+        }
         // remove old contexts
         contexts.forEach {
             httpserver.removeContext(it)
         }
         contexts.clear()
+
+        // load basic contexts
+        httpserver.createContext("/", GeneralFileHandler(File(Config.getFile("ENGINE_DIR"), "/index.html")))
+        httpserver.createContext("/main.js", MainJSHandler())
 
         // load contexts
         println("Loading contexts")
@@ -159,11 +163,7 @@ object WebServer {
             println("Adding http context for file at path " + subpath)
             contexts.add(subpath)
 
-            val fileHandler = when (subpath.split(".").last()) {
-                "bbmodel" -> BBModelHandler(file)
-                "scene" -> SceneHandler(file)
-                else -> GeneralFileHandler(file)
-            }
+            val fileHandler = SubJSHandler(subpath, file)
             httpserver.createContext(subpath, fileHandler)
         }
     }
@@ -190,6 +190,29 @@ class MainJSHandler(): HttpHandler {
         exchange.sendResponseHeaders(200, js.length.toLong())
         val os = exchange.responseBody
         os.write(js.encodeToByteArray())
+        os.close()
+    }
+}
+class SubJSHandler(subpath: String, file: File): HttpHandler {
+
+    val text: String
+
+    init {
+        text = file.readText()
+            .replace("function start(", "function sub${subpath.replace("/", "_").replace(".", "_")}_start(")
+            .replace("function update(", "function sub${subpath.replace("/", "_").replace(".", "_")}_update(")
+    }
+
+    override fun handle(exchange: HttpExchange) {
+        // get file as bytes
+        val bytes = text.toByteArray()
+
+        // setup exchange
+        exchange.sendResponseHeaders(200, bytes.size.toLong())
+
+        // write response bytes to response
+        val os = exchange.responseBody
+        os.write(bytes)
         os.close()
     }
 }
