@@ -26,7 +26,6 @@ object WSJSCompiler {
                 val matches = countMatches(text, name)
 
                 if (matches < 2) {
-                    println("Attempting to global function remove $name")
                     try {
                         val startIndex = text.indexOf("function $name(")
                         var endIndex = startIndex + 1
@@ -43,7 +42,6 @@ object WSJSCompiler {
 
                             endIndex++
                         }
-                        println("Trying to remove $startIndex $endIndex")
                         text = text.removeRange(startIndex, endIndex)
                     } catch (ex: IndexOutOfBoundsException) {
                         println("Failed to remove global function $name")

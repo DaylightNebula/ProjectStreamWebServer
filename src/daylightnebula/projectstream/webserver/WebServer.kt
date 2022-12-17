@@ -201,6 +201,7 @@ class SubJSHandler(subpath: String, file: File): HttpHandler {
         text = file.readText()
             .replace("function start(", "function sub${subpath.replace("/", "_").replace(".", "_")}_start(")
             .replace("function update(", "function sub${subpath.replace("/", "_").replace(".", "_")}_update(")
+            .replace("function end(", "function sub${subpath.replace("/", "_").replace(".", "_")}_end(")
     }
 
     override fun handle(exchange: HttpExchange) {
